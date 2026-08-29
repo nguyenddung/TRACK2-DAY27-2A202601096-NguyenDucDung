@@ -31,21 +31,71 @@ def calculate_slo(target: float, bad_events: int, total_events: int) -> dict[str
     }
 
 
+#  Google SRE Workbook multi-window burn-rate thresholds. Requiring BOTH the
+#  short and the long window to exceed a tier's threshold is what tells a
+#  transient spike (short window hot, long window still cool because the bad
+#  interval gets diluted) apart from sustained burn (both windows hot).
+PAGE_BURN_THRESHOLD = 14.4   # ~2% of a 30-day budget in 1 hour if sustained
+TICKET_BURN_THRESHOLD = 6.0  # ~5% of a 30-day budget in 6 hours if sustained
+
+
 def evaluate_multiwindow_burn(
     *,
     short_window_burn: float,
     long_window_burn: float,
-    policy: str = "starter",
+    policy: str = "two_window",
 ) -> dict[str, Any]:
-    """TODO(student): implement a real multi-window burn-rate policy.
+    """Two-window burn-rate policy (page / ticket / info).
 
-    Starter intentionally never pages. Hidden evaluation contains cases that
-    require distinguishing sustained fast burn from a transient spike.
+    - page (critical): short AND long window burn both exceed the fast-burn
+      threshold -> sustained fast burn, wake someone up.
+    - ticket (warning): short AND long window burn both exceed the
+      slow-burn threshold (but not the page threshold) -> sustained slow
+      burn, file a ticket, no page.
+    - info: everything else, including a short-window spike that the long
+      window does not confirm (a transient blip that should not page).
     """
+    if short_window_burn >= PAGE_BURN_THRESHOLD and long_window_burn >= PAGE_BURN_THRESHOLD:
+        return {
+            "page": True,
+            "severity": "critical",
+            "reason": (
+                f"short_window_burn={short_window_burn:.2f} and long_window_burn={long_window_burn:.2f} "
+                f"both >= page threshold {PAGE_BURN_THRESHOLD} -> sustained fast burn"
+            ),
+            "short_window_burn": short_window_burn,
+            "long_window_burn": long_window_burn,
+            "policy": policy,
+        }
+
+    if short_window_burn >= TICKET_BURN_THRESHOLD and long_window_burn >= TICKET_BURN_THRESHOLD:
+        return {
+            "page": False,
+            "severity": "warning",
+            "reason": (
+                f"short_window_burn={short_window_burn:.2f} and long_window_burn={long_window_burn:.2f} "
+                f"both >= ticket threshold {TICKET_BURN_THRESHOLD} -> sustained slow burn, file a ticket"
+            ),
+            "short_window_burn": short_window_burn,
+            "long_window_burn": long_window_burn,
+            "policy": policy,
+        }
+
+    if short_window_burn >= PAGE_BURN_THRESHOLD and long_window_burn < TICKET_BURN_THRESHOLD:
+        reason = (
+            f"short_window_burn={short_window_burn:.2f} is high but long_window_burn={long_window_burn:.2f} "
+            f"stays below {TICKET_BURN_THRESHOLD} -> transient spike, alert suppressed"
+        )
+    else:
+        reason = (
+            f"short_window_burn={short_window_burn:.2f}, long_window_burn={long_window_burn:.2f} "
+            f"below alerting thresholds"
+        )
     return {
         "page": False,
         "severity": "info",
-        "reason": "starter_policy_not_implemented",
+        "reason": reason,
         "short_window_burn": short_window_burn,
         "long_window_burn": long_window_burn,
+        "policy": policy,
     }

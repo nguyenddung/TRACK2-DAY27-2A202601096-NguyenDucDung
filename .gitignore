@@ -8,3 +8,6 @@ dbt_project/logs/
 dbt_project/dbt_packages/
 .streamlit/
 .DS_Store
+dbt_project/.user.yml
+reports/latest_metrics.json
+reports/gx_result.json

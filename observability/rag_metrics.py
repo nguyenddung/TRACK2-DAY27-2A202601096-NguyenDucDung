@@ -27,11 +27,24 @@ def detect_text_length_shift(
 
 
 def detect_embedding_norm_shift(
-    current_norms: Iterable[float], baseline_norms: Iterable[float]
+    current_norms: Iterable[float],
+    baseline_norms: Iterable[float],
+    *,
+    threshold: float = 3.0,
 ) -> dict[str, Any]:
-    """TODO(student): implement embedding-space drift signal.
+    """Embedding-space drift proxy: z-score of the mean embedding vector norm.
 
-    No embedding model is required for the starter lab. Hidden evaluation can
-    feed precomputed norms/similarities through this stable interface.
+    No embedding model is required for the lab: callers (or hidden tests)
+    feed precomputed norms through this stable interface. A shift in mean
+    norm is a cheap, model-agnostic signal for retrieval/embedding drift
+    (e.g. an index rebuilt with a different model, or truncated/garbled
+    documents producing degenerate embeddings).
     """
-    return {"is_anomaly": False, "score": 0.0, "method": "not_implemented"}
+    current = np.asarray(list(current_norms), dtype=float)
+    if current.size == 0:
+        return {"is_anomaly": False, "score": 0.0, "method": "embedding_norm_zscore", "reason": "empty_current"}
+    current_mean = float(np.mean(current))
+    result = zscore_detector(current_mean, baseline_norms, threshold=threshold)
+    result["method"] = "embedding_norm_zscore"
+    result["current_mean"] = current_mean
+    return result

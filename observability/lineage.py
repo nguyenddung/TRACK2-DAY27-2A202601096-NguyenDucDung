@@ -12,8 +12,8 @@ def load_graph(path: str | Path) -> dict[str, list[str]]:
     return payload["dataset_lineage"] if "dataset_lineage" in payload else payload
 
 
-def get_downstream_assets(graph: dict[str, list[str]], start: str) -> list[str]:
-    """Return transitive downstream assets in BFS order, excluding start."""
+def _bfs_downstream(graph: dict[str, list[str]], start: str) -> list[str]:
+    """Return transitive downstream nodes in BFS order, excluding start."""
     seen = {start}
     q: deque[str] = deque([start])
     out: list[str] = []
@@ -27,14 +27,21 @@ def get_downstream_assets(graph: dict[str, list[str]], start: str) -> list[str]:
     return out
 
 
+def get_downstream_assets(graph: dict[str, list[str]], start: str) -> list[str]:
+    """Return transitive downstream assets in BFS order, excluding start."""
+    return _bfs_downstream(graph, start)
+
+
 def get_column_downstream(
     column_graph: dict[str, list[str]], start_column: str
 ) -> list[str]:
-    """TODO(student): implement column-level traversal.
+    """Return transitive downstream columns in BFS order, excluding start.
 
-    Starter returns only direct children, so transitive hidden cases will fail.
+    Uses the same traversal as dataset-level lineage: `column_graph` maps a
+    fully-qualified column (e.g. "stg_orders.amount_usd") to the columns
+    that are directly derived from it.
     """
-    return list(column_graph.get(start_column, []))
+    return _bfs_downstream(column_graph, start_column)
 
 
 def extract_dbt_dataset_graph(manifest_path: str | Path) -> dict[str, list[str]]:
